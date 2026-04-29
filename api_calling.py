@@ -42,7 +42,7 @@ def quiz_generator(image, difficulty):
     Add correct answer too after the quiz.
     """
     response = client.models.generate_content(
-        model="gemeini-3-flash-preview",
+        model="gemini-3.1-pro-preview",
         contents = [image, prompt]
     )
     return response.text
