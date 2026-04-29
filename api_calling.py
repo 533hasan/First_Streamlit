@@ -1,71 +1,63 @@
+from google import genai
 import streamlit as st
-from api_calling import note_generator, audio_transcription, quiz_generator
-from PIL import Image
+from gtts import gTTS
+import io
 
-# Title
-st.title("📘 Note Summary and Quiz Generator")
-st.markdown("Upload up to 3 images to generate notes, audio, and quizzes")
-st.divider()
 
-# Sidebar
-with st.sidebar:
-    st.header("Controls")
+# ✅ Create client safely
+def get_client():
+    if "GOOGLE_API_KEY" not in st.secrets:
+        st.error("❌ API key missing. Add it in Streamlit Secrets.")
+        st.stop()
 
-    images = st.file_uploader(
-        "Upload your note images",
-        type=["jpg", "jpeg", "png"],
-        accept_multiple_files=True
+    return genai.Client(api_key=st.secrets["GEMINI_API_KEY"])
+
+
+# ✅ Note Generator
+def note_generator(images):
+    client = get_client()
+
+    prompt = """Summarize the notes from the images in under 100 words.
+Use clear markdown with headings and bullet points."""
+
+    response = client.models.generate_content(
+        model="gemini-3.1-pro-preview",
+        contents=images + [prompt],
     )
 
-    if images:
-        if len(images) > 3:
-            st.error("Upload at most 3 images")
-        else:
-            st.subheader("Preview")
-            cols = st.columns(len(images))
-            for i, img in enumerate(images):
-                with cols[i]:
-                    st.image(img)
+    return response.text
 
-    difficulty = st.selectbox(
-        "Select quiz difficulty",
-        ("Easy", "Medium", "Hard"),
-        index=None
+
+# ✅ Audio Generator
+def audio_transcription(text):
+    speech = gTTS(text, lang="en", slow=False)
+    audio_buffer = io.BytesIO()
+    speech.write_to_fp(audio_buffer)
+    audio_buffer.seek(0)
+    return audio_buffer
+
+
+# ✅ Quiz Generator
+def quiz_generator(images, difficulty):
+    client = get_client()
+
+    prompt = f"""Generate 3 multiple choice questions based on the notes.
+
+Difficulty: {difficulty}
+
+Format:
+Q1:
+A)
+B)
+C)
+D)
+
+Answer:
+"""
+
+    response = client.models.generate_content(
+        model="gemini-2.0-flash",
+        contents=images + [prompt],
     )
 
-    run = st.button("🚀 Generate", type="primary")
-
-# Main logic
-if run:
-    if not images:
-        st.error("Please upload at least 1 image")
-    elif not difficulty:
-        st.error("Please select difficulty")
-    else:
-        pil_images = [Image.open(img) for img in images]
-
-        # Notes
-        with st.container(border=True):
-            st.subheader("📄 Notes")
-            with st.spinner("Generating notes..."):
-                notes = note_generator(pil_images)
-                st.markdown(notes)
-
-        # Audio
-        with st.container(border=True):
-            st.subheader("🔊 Audio")
-            with st.spinner("Generating audio..."):
-                clean_text = (
-                    notes.replace("#", "")
-                    .replace("*", "")
-                    .replace("_", "")
-                )
-                audio = audio_transcription(clean_text)
-                st.audio(audio, format="audio/mp3")
-
-        # Quiz
-        with st.container(border=True):
-            st.subheader(f"🧠 Quiz ({difficulty})")
-            with st.spinner("Generating quiz..."):
-                quiz = quiz_generator(pil_images, difficulty)
-                st.markdown(quiz)
+    return response.text
