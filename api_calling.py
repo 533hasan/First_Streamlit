@@ -10,7 +10,7 @@ def get_client():
         st.error("❌ API key missing. Add it in Streamlit Secrets.")
         st.stop()
 
-    return genai.Client(api_key=st.secrets["GEMINI_API_KEY"])
+    return genai.Client(api_key=st.secrets["GOOGLE_API_KEY"])
 
 
 # ✅ Note Generator
